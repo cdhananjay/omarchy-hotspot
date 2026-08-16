@@ -48,12 +48,12 @@ fn main() -> io::Result<()> {
 
     let ssid: String = Input::with_theme(&theme)
         .with_prompt("Enter Hotspot SSID (Name)")
-        .default("DCT_Linux".to_string())
+        .default("omarchy".to_string())
         .interact_text()?;
 
     let password: String = Input::with_theme(&theme)
         .with_prompt("Enter Hotspot Password (min. 8 chars)")
-        .default("Tryh4ckm3;".to_string())
+        .default("12345678".to_string())
         .validate_with(|input: &String| -> Result<(), &str> {
             if input.len() >= 8 {
                 Ok(())
