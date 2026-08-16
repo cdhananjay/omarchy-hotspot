@@ -266,8 +266,20 @@ fn check_and_patch_create_ap() {
     }
 }
 
+fn escape_qr_special(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace(';', "\\;")
+        .replace(',', "\\,")
+        .replace(':', "\\:")
+        .replace('"', "\\\"")
+}
+
 fn save_qr_code_png(ssid: &str, password: &str) -> Option<String> {
-    let wifi_str = format!("WIFI:T:WPA;S:{};P:{};;", ssid, password);
+    let wifi_str = format!(
+        "WIFI:T:WPA;S:{};P:{};;",
+        escape_qr_special(ssid),
+        escape_qr_special(password)
+    );
     if let Ok(code) = QrCode::new(wifi_str.as_bytes()) {
         let image = code
             .render::<Luma<u8>>()
@@ -312,7 +324,11 @@ fn show_dashboard(ssid: &str, password: &str) {
     println!();
 
     // 2. Terminal Fallback QR Code
-    let wifi_str = format!("WIFI:T:WPA;S:{};P:{};;", ssid, password);
+    let wifi_str = format!(
+        "WIFI:T:WPA;S:{};P:{};;",
+        escape_qr_special(ssid),
+        escape_qr_special(password)
+    );
     if let Ok(code) = QrCode::new(wifi_str.as_bytes()) {
         let width = code.width();
         let quiet_zone = 2;
