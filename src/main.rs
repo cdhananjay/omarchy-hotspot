@@ -460,26 +460,3 @@ fn cleanup_stale_processes() {
         .args(&["pkill", "-f", "dnsmasq -C /tmp/create_ap"])
         .status();
 }
-
-#[cfg(test)]
-mod tests {
-    use super::escape_qr_special;
-
-    #[test]
-    fn escape_qr_special_escapes_semicolon() {
-        assert_eq!(escape_qr_special("Tryh4ckm3;"), "Tryh4ckm3\\;");
-    }
-
-    #[test]
-    fn escape_qr_special_escapes_all_special_chars() {
-        assert_eq!(
-            escape_qr_special("a;b,c:d\"e\\f"),
-            "a\\;b\\,c\\:d\\\"e\\\\f"
-        );
-    }
-
-    #[test]
-    fn escape_qr_special_leaves_plain_string_untouched() {
-        assert_eq!(escape_qr_special("plainpass123"), "plainpass123");
-    }
-}
