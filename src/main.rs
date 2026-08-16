@@ -266,8 +266,20 @@ fn check_and_patch_create_ap() {
     }
 }
 
+fn escape_qr_special(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace(';', "\\;")
+        .replace(',', "\\,")
+        .replace(':', "\\:")
+        .replace('"', "\\\"")
+}
+
 fn save_qr_code_png(ssid: &str, password: &str) -> Option<String> {
-    let wifi_str = format!("WIFI:T:WPA;S:{};P:{};;", ssid, password);
+    let wifi_str = format!(
+        "WIFI:T:WPA;S:{};P:{};;",
+        escape_qr_special(ssid),
+        escape_qr_special(password)
+    );
     if let Ok(code) = QrCode::new(wifi_str.as_bytes()) {
         let image = code
             .render::<Luma<u8>>()
@@ -312,7 +324,11 @@ fn show_dashboard(ssid: &str, password: &str) {
     println!();
 
     // 2. Terminal Fallback QR Code
-    let wifi_str = format!("WIFI:T:WPA;S:{};P:{};;", ssid, password);
+    let wifi_str = format!(
+        "WIFI:T:WPA;S:{};P:{};;",
+        escape_qr_special(ssid),
+        escape_qr_special(password)
+    );
     if let Ok(code) = QrCode::new(wifi_str.as_bytes()) {
         let width = code.width();
         let quiet_zone = 2;
@@ -443,4 +459,27 @@ fn cleanup_stale_processes() {
     let _ = Command::new("sudo")
         .args(&["pkill", "-f", "dnsmasq -C /tmp/create_ap"])
         .status();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escape_qr_special;
+
+    #[test]
+    fn escape_qr_special_escapes_semicolon() {
+        assert_eq!(escape_qr_special("Tryh4ckm3;"), "Tryh4ckm3\\;");
+    }
+
+    #[test]
+    fn escape_qr_special_escapes_all_special_chars() {
+        assert_eq!(
+            escape_qr_special("a;b,c:d\"e\\f"),
+            "a\\;b\\,c\\:d\\\"e\\\\f"
+        );
+    }
+
+    #[test]
+    fn escape_qr_special_leaves_plain_string_untouched() {
+        assert_eq!(escape_qr_special("plainpass123"), "plainpass123");
+    }
 }
