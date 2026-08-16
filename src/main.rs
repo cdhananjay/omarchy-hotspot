@@ -10,8 +10,7 @@ use std::thread;
 use std::time::Duration;
 
 fn main() -> io::Result<()> {
-    print_logo();
-    println!("Starting Omarchy Hotspot Setup Manager...\n");
+    println!("Starting Omarchy Hotspot...\n");
 
     // 1. Check required dependencies
     check_dependencies();
@@ -30,16 +29,23 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
+    let wireless_interfaces = get_wireless_interfaces(&interfaces);
+    if wireless_interfaces.is_empty() {
+        eprintln!("Error: No Wi-Fi interfaces found! Make sure your wireless adapter is available.");
+        return Ok(());
+    }
+
     let default_internet =
-        detect_default_gateway_interface().unwrap_or_else(|| "wlan0".to_string());
-    let default_wifi = interfaces
+        detect_default_gateway_interface().unwrap_or_else(|| interfaces[0].clone());
+    let default_wifi = wireless_interfaces
         .iter()
-        .find(|iface| iface.starts_with("wlan"))
+        .find(|iface| iface.starts_with("wl"))
         .cloned()
-        .unwrap_or_else(|| "wlan0".to_string());
+        .unwrap_or_else(|| wireless_interfaces[0].clone());
 
     println!("Detected network interfaces: {:?}", interfaces);
     println!("Suggested Internet Source: {}", default_internet);
+    println!("Detected Wi-Fi interfaces: {:?}", wireless_interfaces);
     println!("Suggested Wi-Fi Adapter: {}", default_wifi);
     println!();
 
@@ -79,15 +85,15 @@ fn main() -> io::Result<()> {
     // Select wifi interface
     let wifi_index = Select::with_theme(&theme)
         .with_prompt("Select Wi-Fi interface to host hotspot")
-        .items(&interfaces)
+        .items(&wireless_interfaces)
         .default(
-            interfaces
+            wireless_interfaces
                 .iter()
                 .position(|x| *x == default_wifi)
                 .unwrap_or(0),
         )
         .interact()?;
-    let wifi_iface = &interfaces[wifi_index];
+    let wifi_iface = &wireless_interfaces[wifi_index];
 
     println!("\nConfiguration Summary:");
     println!("   SSID:      {}", ssid);
@@ -207,6 +213,29 @@ fn get_network_interfaces() -> Vec<String> {
     interfaces
 }
 
+fn get_wireless_interfaces(interfaces: &[String]) -> Vec<String> {
+    interfaces
+        .iter()
+        .filter(|iface| is_wireless_interface(iface))
+        .cloned()
+        .collect()
+}
+
+fn is_wireless_interface(iface: &str) -> bool {
+    let wireless_path = format!("/sys/class/net/{}/wireless", iface);
+    if fs::metadata(&wireless_path).is_ok() {
+        return true;
+    }
+
+    Command::new("iw")
+        .args(&["dev", iface, "info"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
 fn detect_default_gateway_interface() -> Option<String> {
     if let Ok(content) = fs::read_to_string("/proc/net/route") {
         for line in content.lines().skip(1) {
@@ -299,7 +328,6 @@ fn show_dashboard(ssid: &str, password: &str) {
     print!("{}[2J{}[1;1H", 27 as char, 27 as char);
     let _ = io::stdout().flush();
 
-    print_logo();
     println!("========================================================");
     println!("          HOTSPOT IS NOW ACTIVE                         ");
     println!("========================================================");
@@ -483,23 +511,6 @@ fn install_aur_dependencies(missing: &[&str]) {
     eprintln!("Error: Failed to install AUR packages automatically.");
     eprintln!("   Please run: omarchy pkg aur add {}", missing.join(" "));
     std::process::exit(1);
-}
-
-fn print_logo() {
-    println!("\x1b[1;32m");
-    println!("  ____                               _               ");
-    println!(" / __ \\ _ __ ___   __ _ _ __ ___ ___| |__  _   _     ");
-    println!("/ / _` | '_ ` _ \\ / _` | '__/ __/ __| '_ \\| | | |    ");
-    println!("| |(_| | | | | | | (_| | | | (__\\__ \\ | | | |_| |    ");
-    println!("\\ \\__,_|_| |_| |_|\\__,_|_|  \\___|___/_| |_|\\__, |    ");
-    println!(" \\____/                                    |___/     ");
-    println!(" _   _       _                 _                     ");
-    println!("| | | | ___ | |_ ___ _ __   __| |                    ");
-    println!("| |_| |/ _ \\| __/ __| '_ \\ / _` |                    ");
-    println!("|  _  | (_) | |_\\__ \\ |_) | (_| |                    ");
-    println!("|_| |_|\\___/ \\__|___/ .__/ \\__,_|                    ");
-    println!("                    |_|                              ");
-    println!("\x1b[0m");
 }
 
 fn cleanup_stale_processes() {
