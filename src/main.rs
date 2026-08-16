@@ -30,15 +30,22 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
-    let default_internet =
-        detect_default_gateway_interface().unwrap_or_else(|| "wlan0".to_string());
-    let default_wifi = interfaces
-        .iter()
-        .find(|iface| iface.starts_with("wlan"))
-        .cloned()
-        .unwrap_or_else(|| "wlan0".to_string());
+    let wireless_interfaces = get_wireless_interfaces(&interfaces);
+    if wireless_interfaces.is_empty() {
+        eprintln!(
+            "Error: No wireless interfaces detected. A Wi-Fi adapter is required to host a hotspot."
+        );
+        eprintln!("Detected interfaces: {:?}", interfaces);
+        return Ok(());
+    }
+
+    let default_internet = detect_default_gateway_interface()
+        .filter(|iface| interfaces.iter().any(|candidate| candidate == iface))
+        .unwrap_or_else(|| interfaces[0].clone());
+    let default_wifi = suggest_wifi_interface(&wireless_interfaces, &default_internet);
 
     println!("Detected network interfaces: {:?}", interfaces);
+    println!("Detected wireless interfaces: {:?}", wireless_interfaces);
     println!("Suggested Internet Source: {}", default_internet);
     println!("Suggested Wi-Fi Adapter: {}", default_wifi);
     println!();
@@ -79,15 +86,15 @@ fn main() -> io::Result<()> {
     // Select wifi interface
     let wifi_index = Select::with_theme(&theme)
         .with_prompt("Select Wi-Fi interface to host hotspot")
-        .items(&interfaces)
+        .items(&wireless_interfaces)
         .default(
-            interfaces
+            wireless_interfaces
                 .iter()
                 .position(|x| *x == default_wifi)
                 .unwrap_or(0),
         )
         .interact()?;
-    let wifi_iface = &interfaces[wifi_index];
+    let wifi_iface = &wireless_interfaces[wifi_index];
 
     println!("\nConfiguration Summary:");
     println!("   SSID:      {}", ssid);
@@ -217,6 +224,44 @@ fn detect_default_gateway_interface() -> Option<String> {
         }
     }
     None
+}
+
+fn get_wireless_interfaces(interfaces: &[String]) -> Vec<String> {
+    interfaces
+        .iter()
+        .filter(|iface| is_wireless_interface(iface))
+        .cloned()
+        .collect()
+}
+
+fn is_wireless_interface(iface: &str) -> bool {
+    let wireless_sysfs_path = format!("/sys/class/net/{iface}/wireless");
+    if fs::metadata(wireless_sysfs_path).is_ok() {
+        return true;
+    }
+
+    if let Ok(content) = fs::read_to_string("/proc/net/wireless") {
+        for line in content.lines().skip(2) {
+            if let Some((name, _)) = line.split_once(':') {
+                if name.trim() == iface {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
+}
+
+fn suggest_wifi_interface(wireless_interfaces: &[String], default_internet: &str) -> String {
+    if wireless_interfaces
+        .iter()
+        .any(|iface| iface == default_internet)
+    {
+        return default_internet.to_string();
+    }
+
+    wireless_interfaces[0].clone()
 }
 
 fn cleanup_virtual_interfaces() {
