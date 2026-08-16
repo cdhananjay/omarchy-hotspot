@@ -29,6 +29,21 @@ The program can prompt to install missing dependencies with:
 
 This project is intended for Omarchy environments (not a general cross-distro Linux hotspot tool).
 
+## Install prebuilt binary (no Rust needed)
+
+You can download and use the prebuilt `v1.0.0` binary directly from the release page:
+
+- https://github.com/cdhananjay/omarchy-hotspot/releases/tag/v1.0.0
+
+```bash
+curl -L -o omarchy-hotspot https://github.com/cdhananjay/omarchy-hotspot/releases/download/v1.0.0/omarchy-hotspot
+chmod +x omarchy-hotspot
+sudo install -m 755 omarchy-hotspot /usr/local/bin/omarchy-hotspot
+sudo omarchy-hotspot
+```
+
+This path is recommended on Omarchy systems where Rust/Cargo is not installed.
+
 ## Build
 
 ```bash
@@ -39,6 +54,26 @@ cargo build --release
 
 ```bash
 cargo run --release
+```
+
+## Uninstall
+
+If you installed the prebuilt binary to `/usr/local/bin`:
+
+```bash
+sudo rm -f /usr/local/bin/omarchy-hotspot
+```
+
+If you only used a local downloaded file, remove it from the folder where you saved it:
+
+```bash
+rm -f ./omarchy-hotspot
+```
+
+If you built from source and want to remove build artifacts:
+
+```bash
+cargo clean
 ```
 
 During startup, the app will:
